@@ -21,76 +21,85 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 @Mod(LivingAirEventTest.MODID)
-public class LivingAirEventTest {
+public class LivingAirEventTest
+{
+    static final String MODID = "living_air_event_test";
 
-   static final String MODID = "living_air_event_test";
+    @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
+    public static class RegistryEvents
+    {
+        @SubscribeEvent
+        public static void onItemsRegistry(final RegistryEvent.Register<Item> e)
+        {
+            e.getRegistry().register(new MagicalAirBottleItem().setRegistryName(MODID, "magical_air_bottle"));
+        }
+    }
 
-   @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
-   public static class RegistryEvents {
+    @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
+    public static class MagicalAirBottleItem extends Item
+    {
+        public MagicalAirBottleItem()
+        {
+            super(new Item.Properties().stacksTo(1).tab(ItemGroup.TAB_TOOLS));
+        }
 
-      @SubscribeEvent
-      public static void onItemsRegistry(final RegistryEvent.Register<Item> e) {
-         e.getRegistry().register(new MagicalAirBottleItem().setRegistryName(MODID, "magical_air_bottle"));
-      }
+        @Override
+        @OnlyIn(Dist.CLIENT)
+        public void appendHoverText(ItemStack p_77624_1_, World p_77624_2_, List<ITextComponent> p_77624_3_, ITooltipFlag p_77624_4_)
+        {
+            super.appendHoverText(p_77624_1_, p_77624_2_, p_77624_3_, p_77624_4_);
+            CompoundNBT nbt = p_77624_1_.getTag();
+            if (nbt != null && nbt.contains("air"))
+            {
+                p_77624_3_.add(new StringTextComponent("Air: " + nbt.getInt("air") / 20));
+            }
+        }
 
-   }
+        @SubscribeEvent
+        public static void onConsumeAir(LivingConsumeAirEvent e)
+        {
+            LivingEntity entity = e.getEntityLiving();
+            ItemStack stack = entity.getMainHandItem();
+            if (stack.getItem() instanceof MagicalAirBottleItem)
+            {
+                e.setAmount(e.getAmount() - extractAir(stack, e.getAmount()));
+            }
+        }
 
-   @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
-   public static class MagicalAirBottleItem extends Item {
+        @SubscribeEvent
+        public static void onRefillAir(LivingRefillAirEvent e)
+        {
+            LivingEntity entity = e.getEntityLiving();
+            ItemStack stack = entity.getMainHandItem();
+            if (stack.getItem() instanceof MagicalAirBottleItem)
+            {
+                int i = Math.max(e.getAmount() - (entity.getMaxAirSupply() - entity.getAirSupply()), 0);
+                e.setAmount(e.getAmount() - receiveAir(stack, i));
+            }
+        }
 
-      public MagicalAirBottleItem() {
-         super(new Item.Properties().stacksTo(1).tab(ItemGroup.TAB_TOOLS));
-      }
+        public static int extractAir(ItemStack stack, int amount)
+        {
+            CompoundNBT nbt = stack.getOrCreateTag();
+            amount = MathHelper.clamp(amount, 0, nbt.getInt("air"));
+            if (amount == 0)
+            {
+                return 0;
+            }
+            nbt.putInt("air", nbt.getInt("air") - amount);
+            return amount;
+        }
 
-      @Override
-      @OnlyIn(Dist.CLIENT)
-      public void appendHoverText(ItemStack p_77624_1_, World p_77624_2_, List<ITextComponent> p_77624_3_, ITooltipFlag p_77624_4_) {
-         super.appendHoverText(p_77624_1_, p_77624_2_, p_77624_3_, p_77624_4_);
-         CompoundNBT nbt = p_77624_1_.getTag();
-         if (nbt != null && nbt.contains("air")) {
-            p_77624_3_.add(new StringTextComponent("Air: " + nbt.getInt("air") / 20));
-         }
-      }
-
-      @SubscribeEvent
-      public static void onConsumeAir(LivingConsumeAirEvent e) {
-         LivingEntity entity = e.getEntityLiving();
-         ItemStack stack = entity.getMainHandItem();
-         if (stack.getItem() instanceof MagicalAirBottleItem) {
-            e.setAmount(e.getAmount() - extractAir(stack, e.getAmount()));
-         }
-      }
-
-      @SubscribeEvent
-      public static void onRefillAir(LivingRefillAirEvent e) {
-         LivingEntity entity = e.getEntityLiving();
-         ItemStack stack = entity.getMainHandItem();
-         if (stack.getItem() instanceof MagicalAirBottleItem) {
-            int i = Math.max(e.getAmount() - (entity.getMaxAirSupply() - entity.getAirSupply()), 0);
-            e.setAmount(e.getAmount() - receiveAir(stack, i));
-         }
-      }
-
-      public static int extractAir(ItemStack stack, int amount) {
-         CompoundNBT nbt = stack.getOrCreateTag();
-         amount = MathHelper.clamp(amount, 0, nbt.getInt("air"));
-         if (amount == 0) {
-            return 0;
-         }
-         nbt.putInt("air", nbt.getInt("air") - amount);
-         return amount;
-      }
-
-      public static int receiveAir(ItemStack stack, int amount) {
-         CompoundNBT nbt = stack.getOrCreateTag();
-         amount = MathHelper.clamp(amount, 0, 100 - nbt.getInt("air"));
-         if (amount == 0) {
-            return 0;
-         }
-         nbt.putInt("air", nbt.getInt("air") + amount);
-         return amount;
-      }
-
-   }
-
+        public static int receiveAir(ItemStack stack, int amount)
+        {
+            CompoundNBT nbt = stack.getOrCreateTag();
+            amount = MathHelper.clamp(amount, 0, 100 - nbt.getInt("air"));
+            if (amount == 0)
+            {
+                return 0;
+            }
+            nbt.putInt("air", nbt.getInt("air") + amount);
+            return amount;
+        }
+    }
 }

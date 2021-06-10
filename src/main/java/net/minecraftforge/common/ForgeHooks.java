@@ -103,6 +103,7 @@ import net.minecraft.network.play.ServerPlayNetHandler;
 import net.minecraft.network.IPacket;
 import net.minecraft.network.datasync.IDataSerializer;
 import net.minecraft.network.play.server.SChangeBlockPacket;
+import net.minecraft.particles.ParticleTypes;
 import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionUtils;
 import net.minecraft.stats.Stats;
@@ -121,7 +122,6 @@ import net.minecraft.world.gen.settings.DimensionGeneratorSettings;
 import net.minecraft.world.spawner.AbstractSpawner;
 import net.minecraft.tileentity.FurnaceTileEntity;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.SoundEvents;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
@@ -150,6 +150,7 @@ import net.minecraftforge.event.entity.EntityAttributeModificationEvent;
 import net.minecraftforge.event.entity.EntityTravelToDimensionEvent;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
+import net.minecraftforge.event.entity.living.LivingBreatheEvent;
 import net.minecraftforge.event.entity.living.LivingDamageEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingDropsEvent;
@@ -1408,6 +1409,36 @@ public class ForgeHooks
             return new Dynamic<>(ops, ops.createMap(currentList.stream().map(p -> p.mapFirst(ops::createString))));
         }).result().orElse(dymData);
         return data.set(DIMENSIONS_KEY, withInjected);
+    }
+
+    /**
+     * @return true if breathing was handled by forge
+     */
+    public static boolean onLivingBreathe(LivingEntity entity, int consumeAirAmount, int refillAirAmount)
+    {
+        LivingBreatheEvent event = new LivingBreatheEvent(entity, consumeAirAmount, refillAirAmount);
+        if (!MinecraftForge.EVENT_BUS.post(event))
+        {
+            return false;
+        }
+        int newAirSupply = entity.getAirSupply() + (event.canBreathe() ? event.getRefillAirAmount() : -event.getConsumeAirAmount());
+        entity.setAirSupply(MathHelper.clamp(newAirSupply, -20, entity.getMaxAirSupply()));
+        if (entity.getAirSupply() == -20)
+        {
+            entity.setAirSupply(0);
+            Vector3d vector3d = entity.getDeltaMovement();
+
+            for (int i = 0; i < 8; ++i)
+            {
+                double d2 = entity.getRandom().nextDouble() - entity.getRandom().nextDouble();
+                double d3 = entity.getRandom().nextDouble() - entity.getRandom().nextDouble();
+                double d4 = entity.getRandom().nextDouble() - entity.getRandom().nextDouble();
+                entity.level.addParticle(ParticleTypes.BUBBLE, entity.getX() + d2, entity.getY() + d3, entity.getZ() + d4, vector3d.x, vector3d.y, vector3d.z);
+            }
+
+            entity.hurt(DamageSource.DROWN, 2.0F);
+        }
+        return true;
     }
 
     private static final Map<EntityType<? extends LivingEntity>, AttributeModifierMap> FORGE_ATTRIBUTES = new HashMap<>();

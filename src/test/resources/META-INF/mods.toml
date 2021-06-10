@@ -124,5 +124,3 @@ license="LGPL v2.1"
     modId="entity_teleport_event_test"
 [[mods]]
     modId="living_breathe_event_test"
-[[mods]]
-    modId="living_air_event_test"
